@@ -124,3 +124,65 @@ func runSSHCommand(command string, password string, userHost ...string) {
 		panic(err)
 	}
 }
+
+func prestagingActivities() {
+	runSSHCommand(fmt.Sprintf("ls -ld \"/L/ctc_data/ctc_data.%s.%s\"", params.ReleaseBuild, params.Database), "PRODSE.USER1@SED1")
+	runSSHCommand(fmt.Sprintf("ls -ld \"/L/ctcws/ctcws.%s\"", params.Ctcws), "PRODSE.USER1@SED1")
+	runSSHCommand(fmt.Sprintf("ls -ld \"/L/gds/tma.%s\"", params.Tma), "PRODSE.USER1@SED1")
+}
+
+func additionalSSHCommands() {
+	runSSHCommand("EMANT TP1; DE", "PRODSE.USER1@SED1")
+	runSSHCommand("EMANT TT2; DE", "TRAIN.TRNING@SED1")
+	runSSHCommand("EMANT TRA; DE", "RC.MGR@SED1")
+	runSSHCommand("VOLUME $SYSTEM.EMANT; PURGE *; FI", "RX.FER@SED1")
+}
+
+func additionalProfileSetup() {
+	runSSHCommand("VOLUME $AUDIT.EMANTS; BINSTALL; INSTALL EMAN{$release_letter}S EMAN{$release_letter}", "RC.MGR@SED1")
+	runSSHCommand("VOLUME $AUDIT.EMANT; PURGE PROFILES; FUP DUP EMANT.PROFILES,*; EDIT PROFILES", "RC.MGR@SED1")
+	runSSHCommand("VOLUME $EMAN.EMAN{$release_letter}; EDIT PROFILES; LA; ADD <line number>", "RX.FER@DEV2")
+	runSSHCommand("EMAN{$release_letter} {$release_letter}RH; RE {$release_letter}RA ALL", "RX.FER@DEV2")
+}
+func displayParameters() {
+	fmt.Println("Release Build:", params.ReleaseBuild)
+	fmt.Println("Release Letter:", params.ReleaseLetter)
+	fmt.Println("Build Number:", params.BuildNumber)
+	fmt.Println("Previous Release Letter:", params.PrevReleaseLetter)
+	fmt.Println("2 Releases Prior Letter:", params.TwoReleasesPriorLetter)
+	fmt.Println("Host:", params.Host)
+	fmt.Println("Database:", params.Database)
+	fmt.Println("Prefix Letter:", params.PrefixLetter)
+	fmt.Println("New Disk:", params.NewDisk)
+	fmt.Println("Old Disk:", params.OldDisk)
+	fmt.Println("Port:", params.Port)
+	fmt.Println("CTCWS:", params.Ctcws)
+	fmt.Println("TMA:", params.Tma)
+}
+
+func main() {
+	scanner := bufio.NewScanner(os.Stdin)
+
+	fmt.Println("Default Parameters:")
+	displayParameters()
+
+	fmt.Print("Do you want to update parameters? (y/n): ")
+	var choice string
+	fmt.Scanln(&choice)
+
+	if strings.ToLower(choice) == "y" {
+		updateParameters(scanner)
+	}
+
+	fmt.Println("Updated Parameters:")
+	displayParameters()
+
+	fmt.Println("Performing Pre-staging Activities:")
+	prestagingActivities()
+
+	fmt.Println("Performing Additional Profile Setup:")
+	additionalProfileSetup()
+
+	fmt.Println("Performing Additional SSH Commands:")
+	additionalSSHCommands()
+}
